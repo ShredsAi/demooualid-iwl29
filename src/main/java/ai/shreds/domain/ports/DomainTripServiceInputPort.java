@@ -4,6 +4,7 @@ import ai.shreds.domain.commands.*;
 import ai.shreds.domain.entities.DomainTripEntity;
 import ai.shreds.domain.enums.DomainTripStatusEnum;
 import ai.shreds.domain.value_objects.DomainMoneyValue;
+import ai.shreds.domain.value_objects.DomainTripIdValue;
 
 public interface DomainTripServiceInputPort {
     
@@ -13,6 +14,14 @@ public interface DomainTripServiceInputPort {
      * @return The created trip entity
      */
     DomainTripEntity createTrip(DomainCreateTripCommand command);
+    
+    /**
+     * Creates a new trip with a predefined trip ID
+     * @param tripId The predefined trip ID to use
+     * @param command The create trip command containing all necessary information
+     * @return The created trip entity
+     */
+    DomainTripEntity createTripWithId(DomainTripIdValue tripId, DomainCreateTripCommand command);
     
     /**
      * Updates the status of an existing trip

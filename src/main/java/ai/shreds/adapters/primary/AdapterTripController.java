@@ -5,6 +5,8 @@ import ai.shreds.shared.exceptions.*;
 import ai.shreds.application.ports.ApplicationCreateTripInputPort;
 import ai.shreds.application.ports.ApplicationCancelTripInputPort;
 import ai.shreds.application.dtos.*;
+import ai.shreds.application.exceptions.ApplicationPaymentFailedException;
+import ai.shreds.application.exceptions.ApplicationRiderIneligibleException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -41,6 +43,12 @@ public class AdapterTripController {
         } catch (SharedPaymentException e) {
             log.error("Payment error creating trip: {}", e.getMessage());
             throw e;
+        } catch (ApplicationPaymentFailedException e) {
+            log.error("Application payment failed creating trip: {}", e.getMessage());
+            throw e; // Let the exception bubble up to the exception handler
+        } catch (ApplicationRiderIneligibleException e) {
+            log.error("Rider ineligible creating trip: {}", e.getMessage());
+            throw e; // Let the exception bubble up to the exception handler
         } catch (Exception e) {
             log.error("Unexpected error creating trip", e);
             throw new RuntimeException("Failed to create trip", e);

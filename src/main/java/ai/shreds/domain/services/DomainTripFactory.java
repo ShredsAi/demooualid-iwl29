@@ -20,6 +20,10 @@ public class DomainTripFactory {
 
     public DomainTripEntity createTrip(DomainCreateTripCommand command) {
         DomainTripIdValue id = generateTripId();
+        return createTripWithId(id, command);
+    }
+
+    public DomainTripEntity createTripWithId(DomainTripIdValue tripId, DomainCreateTripCommand command) {
         DomainParticipantValue rider = new DomainParticipantValue(
             command.getRiderId(),
             command.getRiderName(),
@@ -30,7 +34,7 @@ public class DomainTripFactory {
         LocalDateTime now = LocalDateTime.now();
         validateScheduledTime(now, command.getScheduledFor());
         return new DomainTripEntity(
-            id,
+            tripId,
             DomainTripStatusEnum.REQUESTED,
             rider,
             command.getPickupLocation(),

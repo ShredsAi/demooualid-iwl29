@@ -16,6 +16,7 @@ import ai.shreds.domain.commands.DomainCreateTripCommand;
 import ai.shreds.domain.entities.DomainTripEntity;
 import ai.shreds.domain.ports.DomainTripServiceInputPort;
 import ai.shreds.domain.value_objects.DomainMoneyValue;
+import ai.shreds.domain.value_objects.DomainTripIdValue;
 import ai.shreds.shared.dtos.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,40 +44,43 @@ public class ApplicationTripRequestService implements ApplicationCreateTripInput
         log.info("Creating trip for rider: {}", command.getRiderId());
         
         try {
-            // Step 1: Validate rider eligibility and get rider details
+            // Step 1: Generate trip ID first to use for payment correlation
+            String tripId = UUID.randomUUID().toString();
+            
+            // Step 2: Validate rider eligibility and get rider details
             SharedRiderProfileDTO riderProfile = validateRiderEligibility(command.getRiderId());
             
-            // Step 2: Enrich command with rider details
+            // Step 3: Enrich command with rider details
             enrichCommandWithRiderDetails(command, riderProfile);
             
-            // Step 3: Estimate fare
+            // Step 4: Estimate fare
             SharedMoneyDTO estimatedFare = estimateFare(
                 command.getPickupLocation(), 
                 command.getDropoffLocation(), 
                 command.getMetadata()
             );
             
-            // Step 4: Pre-authorize payment
+            // Step 5: Pre-authorize payment using the generated trip ID for correlation
             String authorizationId = preAuthorizePayment(
                 command.getRiderId(), 
                 estimatedFare, 
-                UUID.randomUUID().toString() // trip correlation id
+                tripId // use the generated trip ID for correlation
             );
             
-            // Step 5: Create domain command with estimated fare
+            // Step 6: Create domain command with estimated fare and predefined trip ID
             DomainMoneyValue domainEstimatedFare = DomainMoneyValue.fromSharedDTO(estimatedFare);
             DomainCreateTripCommand domainCommand = command.toDomainCommand(domainEstimatedFare);
             
-            // Step 6: Create trip through domain service
-            DomainTripEntity trip = domainTripService.createTrip(domainCommand);
+            // Step 7: Create trip through domain service with predefined ID
+            DomainTripEntity trip = domainTripService.createTripWithId(new DomainTripIdValue(tripId), domainCommand);
             
-            // Step 7: Start matching process
+            // Step 8: Start matching process
             startMatching(trip);
             
-            // Step 8: Publish trip requested event
+            // Step 9: Publish trip requested event
             publishTripRequested(trip);
             
-            // Step 9: Convert to application DTO and return
+            // Step 10: Convert to application DTO and return
             return ApplicationTripDTO.fromDomainEntity(trip);
             
         } catch (Exception e) {

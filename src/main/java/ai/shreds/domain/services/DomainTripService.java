@@ -47,6 +47,16 @@ public class DomainTripService implements DomainTripServiceInputPort {
     @Override
     public DomainTripEntity createTrip(DomainCreateTripCommand command) {
         DomainTripEntity trip = tripFactory.createTrip(command);
+        return saveNewTrip(trip);
+    }
+
+    @Override
+    public DomainTripEntity createTripWithId(DomainTripIdValue tripId, DomainCreateTripCommand command) {
+        DomainTripEntity trip = tripFactory.createTripWithId(tripId, command);
+        return saveNewTrip(trip);
+    }
+
+    private DomainTripEntity saveNewTrip(DomainTripEntity trip) {
         tripRepository.save(trip);
         DomainTripTimelineEntity timeline = new DomainTripTimelineEntity(trip.getId());
         timelineRepository.save(timeline);
