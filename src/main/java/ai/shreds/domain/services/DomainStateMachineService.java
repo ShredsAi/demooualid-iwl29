@@ -1,10 +1,12 @@
 package ai.shreds.domain.services;
 
 import ai.shreds.domain.enums.DomainTripStatusEnum;
+import org.springframework.stereotype.Service;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+@Service
 public class DomainStateMachineService {
 
     public boolean validateTransition(DomainTripStatusEnum currentState, DomainTripStatusEnum newState) {

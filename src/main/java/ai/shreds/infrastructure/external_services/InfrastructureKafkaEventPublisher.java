@@ -4,6 +4,7 @@ import ai.shreds.application.ports.ApplicationEventPublisherOutputPort;
 import ai.shreds.infrastructure.exceptions.InfrastructureMessagingException;
 import ai.shreds.shared.dtos.SharedTripEventDTO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
@@ -21,8 +22,8 @@ public class InfrastructureKafkaEventPublisher implements ApplicationEventPublis
     private final ConcurrentMap<String, String> publishedEvents = new ConcurrentHashMap<>();
 
     public InfrastructureKafkaEventPublisher(
-            KafkaTemplate<String, SharedTripEventDTO> kafkaTemplate,
-            @Value("${kafka.topics.trip-lifecycle-events}") String tripEventsTopic) {
+            @Qualifier("sharedTripEventKafkaTemplate") KafkaTemplate<String, SharedTripEventDTO> kafkaTemplate,
+            @Value("${spring.kafka.topics.trip-lifecycle-events}") String tripEventsTopic) {
         this.kafkaTemplate = kafkaTemplate;
         this.tripEventsTopic = tripEventsTopic;
     }

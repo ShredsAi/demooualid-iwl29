@@ -26,29 +26,23 @@ import ai.shreds.domain.value_objects.DomainMoneyValue;
 import ai.shreds.domain.value_objects.DomainParticipantValue;
 import ai.shreds.domain.value_objects.DomainTripEventValue;
 import ai.shreds.domain.value_objects.DomainTripIdValue;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Map;
 
+@Service
+@RequiredArgsConstructor
+@Transactional
 public class DomainTripService implements DomainTripServiceInputPort {
     private final DomainTripRepositoryOutputPort tripRepository;
     private final DomainTimelineRepositoryOutputPort timelineRepository;
     private final DomainEventStoreOutputPort eventStore;
     private final DomainStateMachineService stateMachine;
     private final DomainTripFactory tripFactory;
-
-    public DomainTripService(DomainTripRepositoryOutputPort tripRepository,
-                             DomainTimelineRepositoryOutputPort timelineRepository,
-                             DomainEventStoreOutputPort eventStore,
-                             DomainStateMachineService stateMachine,
-                             DomainTripFactory tripFactory) {
-        this.tripRepository = tripRepository;
-        this.timelineRepository = timelineRepository;
-        this.eventStore = eventStore;
-        this.stateMachine = stateMachine;
-        this.tripFactory = tripFactory;
-    }
 
     @Override
     public DomainTripEntity createTrip(DomainCreateTripCommand command) {

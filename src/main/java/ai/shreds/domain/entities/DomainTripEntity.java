@@ -99,7 +99,7 @@ public class DomainTripEntity {
         
         // Basic fields
         jpaEntity.setTripId(UUID.fromString(id.getValue()));
-        jpaEntity.setStatus(status.name());
+        jpaEntity.setStatus(status); // Fixed: now using enum directly
         jpaEntity.setRiderId(UUID.fromString(rider.getId()));
         
         if (driver != null) {
@@ -168,7 +168,7 @@ public class DomainTripEntity {
         
         // Build value objects
         DomainTripIdValue id = new DomainTripIdValue(entity.getTripId().toString());
-        DomainTripStatusEnum status = DomainTripStatusEnum.valueOf(entity.getStatus());
+        DomainTripStatusEnum status = entity.getStatus(); // Fixed: now getting enum directly
         
         // For now, we'll create basic participant values since we don't have full rider/driver info in JPA entity
         // In a real scenario, these would be fetched from their respective services

@@ -1,6 +1,8 @@
 package ai.shreds.domain.entities;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -22,7 +24,8 @@ public class DomainTripEventJpaEntity {
     @Column(name = "event_timestamp", nullable = false)
     private OffsetDateTime eventTimestamp;
     
-    @Column(name = "payload", columnDefinition = "JSONB")
+    @Column(name = "payload", columnDefinition = "TEXT")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String payload;
     
     // Constructors

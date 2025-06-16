@@ -12,6 +12,9 @@ spring:
       hibernate:
         show_sql: true
         format_sql: true
+        hbm2ddl:
+          auto: create-drop
+    defer-datasource-initialization: false
   flyway:
     enabled: false
   kafka:
@@ -34,6 +37,10 @@ spring:
     listener:
       ack-mode: manual_immediate
       concurrency: 1
+    topics:
+      trip-lifecycle-events: trip-lifecycle-events-test
+      matching-requests: matching-requests-test
+      matching-service-responses: matching-service-responses-test
   integration:
     channels:
       tripExecutionChannel: direct

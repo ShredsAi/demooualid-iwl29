@@ -9,11 +9,13 @@ import ai.shreds.domain.value_objects.DomainLocationValue;
 import ai.shreds.domain.value_objects.DomainMoneyValue;
 import ai.shreds.domain.value_objects.DomainParticipantValue;
 import ai.shreds.domain.value_objects.DomainTripIdValue;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 
+@Service
 public class DomainTripFactory {
 
     public DomainTripEntity createTrip(DomainCreateTripCommand command) {

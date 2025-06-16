@@ -4,7 +4,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.dsl.IntegrationFlow;
 import org.springframework.integration.dsl.MessageChannels;
-import org.springframework.messaging.MessageChannel;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 
 import java.util.Properties;
@@ -29,16 +28,6 @@ public class InfrastructureSchedulerConfig {
                     // Handle timeout messages - this will be processed by timeout handlers
                 })
                 .get();
-    }
-
-    @Bean
-    public MessageChannel timeoutChannel() {
-        return MessageChannels.direct().get();
-    }
-
-    @Bean
-    public MessageChannel tripExecutionChannel() {
-        return MessageChannels.direct().get();
     }
 
     private Properties schedulerProperties() {

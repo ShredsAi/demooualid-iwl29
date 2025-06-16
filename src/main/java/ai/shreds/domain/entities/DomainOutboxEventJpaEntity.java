@@ -1,6 +1,8 @@
 package ai.shreds.domain.entities;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -22,7 +24,8 @@ public class DomainOutboxEventJpaEntity {
     @Column(name = "event_type", length = 40, nullable = false)
     private String eventType;
     
-    @Column(name = "event_payload", columnDefinition = "JSONB", nullable = false)
+    @Column(name = "event_payload", columnDefinition = "TEXT", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
     private String eventPayload;
     
     @Column(name = "published", nullable = false)

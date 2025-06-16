@@ -1,5 +1,6 @@
 package ai.shreds.infrastructure.config;
 
+import ai.shreds.shared.dtos.SharedTripEventDTO;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -30,6 +31,26 @@ public class InfrastructureKafkaConfig {
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
+    }
+    
+    @Bean
+    public ProducerFactory<String, SharedTripEventDTO> sharedTripEventProducerFactory() {
+        Map<String, Object> configs = new HashMap<>();
+        configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configs.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configs.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        configs.put(ProducerConfig.ACKS_CONFIG, "all");
+        configs.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
+        configs.put(ProducerConfig.RETRIES_CONFIG, 3);
+        configs.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+        configs.put(ProducerConfig.LINGER_MS_CONFIG, 5);
+        configs.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
+        return new DefaultKafkaProducerFactory<>(configs);
+    }
+    
+    @Bean
+    public KafkaTemplate<String, SharedTripEventDTO> sharedTripEventKafkaTemplate() {
+        return new KafkaTemplate<>(sharedTripEventProducerFactory());
     }
 
     @Bean

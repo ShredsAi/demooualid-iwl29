@@ -35,6 +35,18 @@ public class InfrastructureDatabaseConfig {
     @Value("${spring.datasource.hikari.connection-timeout:30000}")
     private long connectionTimeout;
 
+    @Value("${spring.jpa.database-platform:org.hibernate.dialect.PostgreSQLDialect}")
+    private String hibernateDialect;
+
+    @Value("${spring.jpa.hibernate.ddl-auto:validate}")
+    private String ddlAuto;
+
+    @Value("${spring.jpa.properties.hibernate.show_sql:false}")
+    private String showSql;
+
+    @Value("${spring.jpa.properties.hibernate.format_sql:true}")
+    private String formatSql;
+
     @Bean
     public DataSource dataSource() {
         return new HikariDataSource(hikariConfig());
@@ -72,10 +84,10 @@ public class InfrastructureDatabaseConfig {
 
     private Properties hibernateProperties() {
         Properties properties = new Properties();
-        properties.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
-        properties.put("hibernate.hbm2ddl.auto", "validate");
-        properties.put("hibernate.show_sql", "false");
-        properties.put("hibernate.format_sql", "true");
+        properties.put("hibernate.dialect", hibernateDialect);
+        properties.put("hibernate.hbm2ddl.auto", ddlAuto);
+        properties.put("hibernate.show_sql", showSql);
+        properties.put("hibernate.format_sql", formatSql);
         properties.put("hibernate.use_sql_comments", "false");
         properties.put("hibernate.jdbc.batch_size", "20");
         properties.put("hibernate.order_inserts", "true");

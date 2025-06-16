@@ -20,7 +20,8 @@ public class DomainTripTimelineJpaEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
     
-    @OneToMany(mappedBy = "timelineId", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinColumn(name = "timeline_id")
     @OrderBy("eventTimestamp ASC")
     private List<DomainTripEventJpaEntity> events = new ArrayList<>();
     

@@ -1,6 +1,9 @@
 package ai.shreds.domain.entities;
 
+import ai.shreds.domain.enums.DomainTripStatusEnum;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -15,7 +18,7 @@ public class DomainTripJpaEntity {
     
     @Column(name = "status", length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
-    private String status;
+    private DomainTripStatusEnum status;
     
     @Column(name = "rider_id", nullable = false)
     private UUID riderId;
@@ -74,7 +77,8 @@ public class DomainTripJpaEntity {
     @Column(name = "refund_currency", length = 3)
     private String refundCurrency;
     
-    @Column(name = "metadata", columnDefinition = "JSONB")
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String metadata;
     
     @Version
@@ -113,11 +117,11 @@ public class DomainTripJpaEntity {
         this.tripId = tripId;
     }
     
-    public String getStatus() {
+    public DomainTripStatusEnum getStatus() {
         return status;
     }
     
-    public void setStatus(String status) {
+    public void setStatus(DomainTripStatusEnum status) {
         this.status = status;
     }
     
