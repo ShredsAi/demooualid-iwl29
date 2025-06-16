@@ -66,11 +66,19 @@ public class InfrastructureTripEntityMapper {
         try {
             DomainTripIdValue tripId = new DomainTripIdValue(jpaEntity.getTripId().toString());
             
+            // Create timeline with just tripId - constructor only accepts tripId parameter
+            DomainTripTimelineEntity timeline = new DomainTripTimelineEntity(tripId);
+            
+            // Add events one by one using addEvent method
             List<DomainTripEventValue> events = jpaEntity.getEvents().stream()
                     .map(this::toDomainEvent)
                     .collect(Collectors.toList());
+            
+            for (DomainTripEventValue event : events) {
+                timeline.addEvent(event);
+            }
 
-            return new DomainTripTimelineEntity(tripId, events);
+            return timeline;
 
         } catch (Exception e) {
             log.error("Error mapping timeline JPA entity to domain entity: {}", e.getMessage(), e);

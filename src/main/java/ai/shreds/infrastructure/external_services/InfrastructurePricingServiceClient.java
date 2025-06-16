@@ -40,33 +40,38 @@ public class InfrastructurePricingServiceClient implements ApplicationPricingSer
     @Override
     public SharedFareEstimateDTO estimateFare(SharedLocationDTO pickupLocation, SharedLocationDTO dropoffLocation, Map<String, String> metadata) {
         log.debug("Estimating fare from {} to {}", pickupLocation.getAddress(), dropoffLocation.getAddress());
-        
-        return circuitBreaker.executeSupplier(() -> {
-            try {
-                SharedPricingRequestDTO request = createPricingRequest(pickupLocation, dropoffLocation, metadata);
-                
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                HttpEntity<SharedPricingRequestDTO> entity = new HttpEntity<>(request, headers);
-                
-                String url = pricingServiceUrl + "/pricing/v1/estimate";
-                SharedFareEstimateDTO response = restTemplate.postForObject(url, entity, SharedFareEstimateDTO.class);
-                
-                if (response == null) {
-                    log.warn("Pricing service returned null for route");
-                    throw new InfrastructureServiceUnavailableException("Pricing Service", HttpStatus.NO_CONTENT.value());
+        try {
+            // Execute the pricing call within the circuit breaker
+            return circuitBreaker.executeSupplier(() -> {
+                try {
+                    SharedPricingRequestDTO request = createPricingRequest(pickupLocation, dropoffLocation, metadata);
+
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+                    HttpEntity<SharedPricingRequestDTO> entity = new HttpEntity<>(request, headers);
+
+                    String url = pricingServiceUrl + "/pricing/v1/estimate";
+                    SharedFareEstimateDTO response = restTemplate.postForObject(url, entity, SharedFareEstimateDTO.class);
+
+                    if (response == null) {
+                        log.warn("Pricing service returned null for route");
+                        throw new InfrastructureServiceUnavailableException("Pricing Service", HttpStatus.NO_CONTENT.value());
+                    }
+
+                    log.debug("Fare estimate successful: {} {}", response.getAmount(), response.getCurrency());
+                    return response;
+                } catch (HttpStatusCodeException e) {
+                    log.error("HTTP error estimating fare: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    throw new InfrastructureServiceUnavailableException("Pricing Service", e.getStatusCode().value());
+                } catch (Exception e) {
+                    log.error("Error estimating fare: {}", e.getMessage(), e);
+                    throw new InfrastructureServiceUnavailableException("Pricing Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
                 }
-                
-                log.debug("Fare estimate successful: {} {}", response.getAmount(), response.getCurrency());
-                return response;
-            } catch (HttpStatusCodeException e) {
-                log.error("HTTP error estimating fare: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
-                throw new InfrastructureServiceUnavailableException("Pricing Service", e.getStatusCode().value());
-            } catch (Exception e) {
-                log.error("Error estimating fare: {}", e.getMessage(), e);
-                throw new InfrastructureServiceUnavailableException("Pricing Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
-            }
-        }, throwable -> handleFallback(pickupLocation, dropoffLocation, throwable));
+            });
+        } catch (Throwable ex) {
+            log.warn("Circuit breaker fallback triggered for pricing: {}", ex.getMessage());
+            return handleFallback(pickupLocation, dropoffLocation, ex);
+        }
     }
 
     private SharedPricingRequestDTO createPricingRequest(SharedLocationDTO pickup, SharedLocationDTO dropoff, Map<String, String> metadata) {
@@ -79,20 +84,20 @@ public class InfrastructurePricingServiceClient implements ApplicationPricingSer
 
     private SharedFareEstimateDTO handleFallback(SharedLocationDTO pickup, SharedLocationDTO dropoff, Throwable ex) {
         log.warn("Circuit breaker fallback triggered for pricing: {}", ex.getMessage());
-        
+
         // Calculate basic fare estimate based on straight-line distance
         double distance = calculateStraightLineDistance(pickup, dropoff);
         BigDecimal baseFare = BigDecimal.valueOf(5.0); // Base fare
         BigDecimal perKmRate = BigDecimal.valueOf(2.0); // Per km rate
         BigDecimal estimatedFare = baseFare.add(perKmRate.multiply(BigDecimal.valueOf(distance)));
-        
+
         SharedFareEstimateDTO fallbackEstimate = new SharedFareEstimateDTO();
         fallbackEstimate.setAmount(estimatedFare);
         fallbackEstimate.setCurrency("USD");
         fallbackEstimate.setSurgeMultiplier(BigDecimal.ONE);
-        fallbackEstimate.setEstimatedDuration(Long.valueOf((long)(distance * 3))); // Rough estimate: 3 minutes per km
+        fallbackEstimate.setEstimatedDuration((long) (distance * 3)); // Rough estimate: 3 minutes per km
         fallbackEstimate.setEstimatedDistance(BigDecimal.valueOf(distance));
-        
+
         return fallbackEstimate;
     }
 
@@ -102,12 +107,12 @@ public class InfrastructurePricingServiceClient implements ApplicationPricingSer
         double lat2 = Math.toRadians(to.getLatitude().doubleValue());
         double deltaLat = lat2 - lat1;
         double deltaLon = Math.toRadians(to.getLongitude().doubleValue() - from.getLongitude().doubleValue());
-        
+
         double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
                 Math.cos(lat1) * Math.cos(lat2) *
                 Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        
+
         return earthRadius * c;
     }
 }

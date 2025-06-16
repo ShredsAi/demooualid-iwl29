@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
-import org.springframework.util.concurrent.ListenableFutureCallback;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -31,31 +30,26 @@ public class InfrastructureKafkaEventPublisher implements ApplicationEventPublis
     @Override
     public void publishTripEvent(SharedTripEventDTO event) {
         log.debug("Publishing trip event: type={}, tripId={}", event.getEventType(), event.getTripId());
-        
+
         try {
-            // Ensure idempotency
             ensureIdempotency(event);
             
             kafkaTemplate.send(tripEventsTopic, event.getTripId(), event)
-                    .addCallback(new ListenableFutureCallback<SendResult<String, SharedTripEventDTO>>() {
-                        @Override
-                        public void onSuccess(SendResult<String, SharedTripEventDTO> result) {
-                            log.debug("Successfully published trip event: type={}, tripId={}, partition={}, offset={}",
-                                    event.getEventType(),
-                                    event.getTripId(),
-                                    result.getRecordMetadata().partition(),
-                                    result.getRecordMetadata().offset());
-                        }
-
-                        @Override
-                        public void onFailure(Throwable ex) {
-                            log.error("Failed to publish trip event: type={}, tripId={}, error={}",
-                                    event.getEventType(), event.getTripId(), ex.getMessage(), ex);
-                            // Remove from published events cache on failure
-                            removeFromIdempotencyCache(event);
-                        }
+                    .thenApply(result -> {
+                        log.debug("Successfully published trip event: type={}, tripId={}, partition={}, offset={}",
+                                event.getEventType(),
+                                event.getTripId(),
+                                result.getRecordMetadata().partition(),
+                                result.getRecordMetadata().offset());
+                        return result;
+                    })
+                    .exceptionally(ex -> {
+                        log.error("Failed to publish trip event: type={}, tripId={}, error={}",
+                                event.getEventType(), event.getTripId(), ex.getMessage(), ex);
+                        removeFromIdempotencyCache(event);
+                        return null;
                     });
-            
+
         } catch (Exception e) {
             log.error("Error publishing trip event: type={}, tripId={}, error={}", 
                     event.getEventType(), event.getTripId(), e.getMessage(), e);
@@ -67,13 +61,11 @@ public class InfrastructureKafkaEventPublisher implements ApplicationEventPublis
     private void ensureIdempotency(SharedTripEventDTO event) {
         String eventKey = generateEventKey(event);
         String existingTimestamp = publishedEvents.putIfAbsent(eventKey, event.getTimestamp());
-        
         if (existingTimestamp != null) {
             log.debug("Event already published, skipping: type={}, tripId={}", 
                     event.getEventType(), event.getTripId());
             return;
         }
-        
         log.debug("Event marked for publishing: type={}, tripId={}", 
                 event.getEventType(), event.getTripId());
     }
@@ -87,10 +79,7 @@ public class InfrastructureKafkaEventPublisher implements ApplicationEventPublis
         return event.getTripId() + ":" + event.getEventType() + ":" + event.getTimestamp();
     }
 
-    // Method to clean up old entries from idempotency cache
     public void cleanupIdempotencyCache() {
-        // In a real implementation, you might want to remove entries older than X minutes
-        // For now, we'll keep it simple and rely on memory limits
         if (publishedEvents.size() > 10000) {
             log.info("Clearing idempotency cache, current size: {}", publishedEvents.size());
             publishedEvents.clear();

@@ -27,10 +27,10 @@ public class InfrastructureEventStoreRepositoryImpl implements DomainEventStoreO
         try {
             log.debug("Saving domain event to outbox: type={}, aggregateId={}", 
                     event.getEventType(), event.getAggregateId());
-            
+
             var outboxEntity = eventMapper.toOutboxEntity(event);
             outboxEventJpaRepository.save(outboxEntity);
-            
+
             log.debug("Successfully saved domain event to outbox: type={}, aggregateId={}", 
                     event.getEventType(), event.getAggregateId());
         } catch (Exception e) {
@@ -45,12 +45,12 @@ public class InfrastructureEventStoreRepositoryImpl implements DomainEventStoreO
     public List<DomainDomainEvent> getUnpublishedEvents() {
         try {
             log.debug("Retrieving unpublished events from outbox");
-            
+
             List<DomainDomainEvent> events = outboxEventJpaRepository.findByPublishedFalse()
                     .stream()
                     .map(eventMapper::fromOutboxEntity)
                     .collect(Collectors.toList());
-            
+
             log.debug("Retrieved {} unpublished events from outbox", events.size());
             return events;
         } catch (Exception e) {
@@ -60,12 +60,12 @@ public class InfrastructureEventStoreRepositoryImpl implements DomainEventStoreO
     }
 
     @Override
-    public void markAsPublished(Long eventId) {
+    public void markAsPublished(long eventId) {
         try {
             log.debug("Marking outbox event as published: eventId={}", eventId);
-            
+
             outboxEventJpaRepository.updatePublished(eventId, true, OffsetDateTime.now());
-            
+
             log.debug("Successfully marked outbox event as published: eventId={}", eventId);
         } catch (Exception e) {
             log.error("Failed to mark outbox event as published: eventId={}", eventId, e);
@@ -76,12 +76,12 @@ public class InfrastructureEventStoreRepositoryImpl implements DomainEventStoreO
     public List<DomainDomainEvent> getUnpublishedEventsWithLimit(int limit) {
         try {
             log.debug("Retrieving {} unpublished events from outbox", limit);
-            
+
             List<DomainDomainEvent> events = outboxEventJpaRepository.findUnpublishedEventsWithLimit(limit)
                     .stream()
                     .map(eventMapper::fromOutboxEntity)
                     .collect(Collectors.toList());
-            
+
             log.debug("Retrieved {} unpublished events from outbox", events.size());
             return events;
         } catch (Exception e) {

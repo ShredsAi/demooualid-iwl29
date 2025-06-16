@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
-import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
@@ -28,7 +27,7 @@ public class AdapterMatchingResponseConsumer {
     )
     public void handleMatchingResponse(
             @Payload String payload,
-            @Header(KafkaHeaders.RECEIVED_MESSAGE_KEY) String messageKey,
+            @Header("kafka_receivedMessageKey") String messageKey,
             @Header(value = "eventType", required = false) String eventType,
             @Header(value = "correlationId", required = false) String correlationId,
             Acknowledgment acknowledgment) {

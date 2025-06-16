@@ -41,82 +41,74 @@ public class InfrastructurePaymentServiceClient implements ApplicationPaymentSer
     @Override
     public SharedPaymentAuthorizationDTO preAuthorize(String riderId, SharedMoneyDTO amount, String tripCorrelationId) {
         log.debug("Pre-authorizing payment for rider {} amount {} {}", riderId, amount.getAmount(), amount.getCurrency());
-        
-        return circuitBreaker.executeSupplier(() -> {
-            try {
-                SharedPaymentPreAuthRequestDTO request = createPreAuthRequest(riderId, amount, tripCorrelationId);
-                
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                HttpEntity<SharedPaymentPreAuthRequestDTO> entity = new HttpEntity<>(request, headers);
-                
-                String url = paymentServiceUrl + "/payments/v1/pre-authorize";
-                SharedPaymentAuthorizationDTO response = restTemplate.postForObject(url, entity, SharedPaymentAuthorizationDTO.class);
-                
-                if (response == null) {
-                    log.warn("Payment service returned null for pre-authorization");
-                    throw new InfrastructureServiceUnavailableException("Payment Service", HttpStatus.NO_CONTENT.value());
+        try {
+            return circuitBreaker.executeSupplier(() -> {
+                try {
+                    SharedPaymentPreAuthRequestDTO request = createPreAuthRequest(riderId, amount, tripCorrelationId);
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+                    HttpEntity<SharedPaymentPreAuthRequestDTO> entity = new HttpEntity<>(request, headers);
+                    String url = paymentServiceUrl + "/payments/v1/pre-authorize";
+                    SharedPaymentAuthorizationDTO response = restTemplate.postForObject(url, entity, SharedPaymentAuthorizationDTO.class);
+                    if (response == null) {
+                        log.warn("Payment service returned null for pre-authorization");
+                        throw new InfrastructureServiceUnavailableException("Payment Service", HttpStatus.NO_CONTENT.value());
+                    }
+                    log.debug("Payment pre-authorization successful: authId={}", response.getAuthorizationId());
+                    return response;
+                } catch (HttpStatusCodeException e) {
+                    log.error("HTTP error in payment pre-authorization: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    if (e.getStatusCode().value() == 402) {
+                        return createFailedAuthorizationResponse(riderId, amount, "PAYMENT_DECLINED");
+                    }
+                    throw new InfrastructureServiceUnavailableException("Payment Service", e.getStatusCode().value());
+                } catch (Exception e) {
+                    log.error("Error in payment pre-authorization: {}", e.getMessage(), e);
+                    throw new InfrastructureServiceUnavailableException("Payment Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
                 }
-                
-                log.debug("Payment pre-authorization successful: authId={}", response.getAuthorizationId());
-                return response;
-            } catch (HttpStatusCodeException e) {
-                log.error("HTTP error in payment pre-authorization: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
-                
-                if (e.getStatusCode().value() == 402) {
-                    // Payment failed - return failed authorization
-                    return createFailedAuthorizationResponse(riderId, amount, "PAYMENT_DECLINED");
-                }
-                
-                throw new InfrastructureServiceUnavailableException("Payment Service", e.getStatusCode().value());
-            } catch (Exception e) {
-                log.error("Error in payment pre-authorization: {}", e.getMessage(), e);
-                throw new InfrastructureServiceUnavailableException("Payment Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
-            }
-        }, throwable -> handlePreAuthFallback(riderId, amount, throwable));
+            });
+        } catch (Throwable t) {
+            log.warn("Circuit breaker fallback triggered for payment pre-auth: {}", t.getMessage());
+            return handlePreAuthFallback(riderId, amount, t);
+        }
     }
 
     @Override
     public Boolean refund(String authorizationId) {
         log.debug("Processing refund for authorization: {}", authorizationId);
-        
-        return circuitBreaker.executeSupplier(() -> {
-            try {
-                SharedPaymentRefundRequestDTO request = createRefundRequest(authorizationId);
-                
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-                HttpEntity<SharedPaymentRefundRequestDTO> entity = new HttpEntity<>(request, headers);
-                
-                String url = paymentServiceUrl + "/payments/v1/refund";
-                
-                // Assuming the service returns a simple response with refunded flag
-                @SuppressWarnings("unchecked")
-                java.util.Map<String, Object> response = restTemplate.postForObject(url, entity, java.util.Map.class);
-                
-                if (response == null) {
-                    log.warn("Payment service returned null for refund");
-                    return false;
+        try {
+            return circuitBreaker.executeSupplier(() -> {
+                try {
+                    SharedPaymentRefundRequestDTO request = createRefundRequest(authorizationId);
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+                    HttpEntity<SharedPaymentRefundRequestDTO> entity = new HttpEntity<>(request, headers);
+                    String url = paymentServiceUrl + "/payments/v1/refund";
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> response = restTemplate.postForObject(url, entity, java.util.Map.class);
+                    if (response == null) {
+                        log.warn("Payment service returned null for refund");
+                        return false;
+                    }
+                    Boolean refunded = (Boolean) response.get("refunded");
+                    log.debug("Refund processed: authId={}, success={}", authorizationId, refunded);
+                    return refunded != null ? refunded : false;
+                } catch (HttpStatusCodeException e) {
+                    log.error("HTTP error in refund processing: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
+                    if (e.getStatusCode().value() == 404) {
+                        log.warn("Authorization not found for refund: {}", authorizationId);
+                        return false;
+                    }
+                    throw new InfrastructureServiceUnavailableException("Payment Service", e.getStatusCode().value());
+                } catch (Exception e) {
+                    log.error("Error in refund processing: {}", e.getMessage(), e);
+                    throw new InfrastructureServiceUnavailableException("Payment Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
                 }
-                
-                Boolean refunded = (Boolean) response.get("refunded");
-                log.debug("Refund processed: authId={}, success={}", authorizationId, refunded);
-                return refunded != null ? refunded : false;
-                
-            } catch (HttpStatusCodeException e) {
-                log.error("HTTP error in refund processing: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
-                
-                if (e.getStatusCode().value() == 404) {
-                    log.warn("Authorization not found for refund: {}", authorizationId);
-                    return false;
-                }
-                
-                throw new InfrastructureServiceUnavailableException("Payment Service", e.getStatusCode().value());
-            } catch (Exception e) {
-                log.error("Error in refund processing: {}", e.getMessage(), e);
-                throw new InfrastructureServiceUnavailableException("Payment Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
-            }
-        }, throwable -> handleRefundFallback(authorizationId, throwable));
+            });
+        } catch (Throwable t) {
+            log.warn("Circuit breaker fallback triggered for refund: {}", t.getMessage());
+            return handleRefundFallback(authorizationId, t);
+        }
     }
 
     private SharedPaymentPreAuthRequestDTO createPreAuthRequest(String riderId, SharedMoneyDTO amount, String tripCorrelationId) {
@@ -141,7 +133,6 @@ public class InfrastructurePaymentServiceClient implements ApplicationPaymentSer
 
     private Boolean handleRefundFallback(String authorizationId, Throwable ex) {
         log.warn("Circuit breaker fallback triggered for refund: {}", ex.getMessage());
-        // In fallback, we assume refund failed - this should be retried later
         return false;
     }
 

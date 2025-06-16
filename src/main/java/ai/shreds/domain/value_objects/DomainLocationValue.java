@@ -1,6 +1,7 @@
 package ai.shreds.domain.value_objects;
 
 import ai.shreds.domain.exceptions.DomainBusinessRuleViolationException;
+import ai.shreds.shared.dtos.SharedLocationDTO;
 import java.math.BigDecimal;
 import java.util.Objects;
 
@@ -82,6 +83,34 @@ public class DomainLocationValue {
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         return R * c; // Distance in kilometers
+    }
+
+    /**
+     * Converts this domain location value to a SharedLocationDTO for cross-layer communication.
+     * 
+     * @return SharedLocationDTO containing the location data
+     */
+    public SharedLocationDTO toSharedDTO() {
+        return SharedLocationDTO.fromDomainValue(this);
+    }
+
+    /**
+     * Factory method to create a DomainLocationValue from a SharedLocationDTO.
+     * 
+     * @param dto the SharedLocationDTO to convert
+     * @return DomainLocationValue created from the DTO
+     */
+    public static DomainLocationValue fromSharedDTO(SharedLocationDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        return new DomainLocationValue(
+            dto.getLatitude(),
+            dto.getLongitude(),
+            dto.getAddress(),
+            dto.getCity(),
+            dto.getPostalCode()
+        );
     }
 
     @Override

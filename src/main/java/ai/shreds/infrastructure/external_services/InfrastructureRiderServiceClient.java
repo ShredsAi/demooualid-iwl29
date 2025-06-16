@@ -39,30 +39,34 @@ public class InfrastructureRiderServiceClient implements ApplicationRiderService
     public SharedRiderProfileDTO validateRider(String riderId) {
         log.debug("Validating rider with ID: {}", riderId);
         
-        return circuitBreaker.executeSupplier(() -> {
-            try {
-                String url = riderServiceUrl + "/riders/" + riderId;
-                SharedRiderProfileDTO response = restTemplate.getForObject(url, SharedRiderProfileDTO.class);
-                
-                if (response == null) {
-                    log.warn("Rider service returned null for rider ID: {}", riderId);
-                    throw new InfrastructureServiceUnavailableException("Rider Service", HttpStatus.NO_CONTENT.value());
+        try {
+            return circuitBreaker.executeSupplier(() -> {
+                try {
+                    String url = riderServiceUrl + "/riders/" + riderId;
+                    SharedRiderProfileDTO response = restTemplate.getForObject(url, SharedRiderProfileDTO.class);
+                    
+                    if (response == null) {
+                        log.warn("Rider service returned null for rider ID: {}", riderId);
+                        throw new InfrastructureServiceUnavailableException("Rider Service", HttpStatus.NO_CONTENT.value());
+                    }
+                    
+                    log.debug("Rider validation successful for ID: {}", riderId);
+                    return response;
+                } catch (HttpStatusCodeException e) {
+                    log.error("HTTP error validating rider {}: {} {}", riderId, e.getStatusCode(), e.getResponseBodyAsString());
+                    if (e.getStatusCode().value() == 404) {
+                        // Return a rider with suspended status for not found
+                        return createSuspendedRiderResponse(riderId, "RIDER_NOT_FOUND");
+                    }
+                    throw new InfrastructureServiceUnavailableException("Rider Service", e.getStatusCode().value());
+                } catch (Exception e) {
+                    log.error("Error validating rider {}: {}", riderId, e.getMessage(), e);
+                    throw new InfrastructureServiceUnavailableException("Rider Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
                 }
-                
-                log.debug("Rider validation successful for ID: {}", riderId);
-                return response;
-            } catch (HttpStatusCodeException e) {
-                log.error("HTTP error validating rider {}: {} {}", riderId, e.getStatusCode(), e.getResponseBodyAsString());
-                if (e.getStatusCode().value() == 404) {
-                    // Return a rider with suspended status for not found
-                    return createSuspendedRiderResponse(riderId, "RIDER_NOT_FOUND");
-                }
-                throw new InfrastructureServiceUnavailableException("Rider Service", e.getStatusCode().value());
-            } catch (Exception e) {
-                log.error("Error validating rider {}: {}", riderId, e.getMessage(), e);
-                throw new InfrastructureServiceUnavailableException("Rider Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
-            }
-        }, throwable -> handleFallback(riderId, throwable));
+            });
+        } catch (Exception ex) {
+            return handleFallback(riderId, ex);
+        }
     }
 
     private SharedRiderProfileDTO handleFallback(String riderId, Throwable ex) {

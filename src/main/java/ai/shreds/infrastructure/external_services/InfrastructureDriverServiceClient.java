@@ -14,6 +14,7 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.util.function.Supplier;
 
 @Service
 @Slf4j
@@ -36,39 +37,38 @@ public class InfrastructureDriverServiceClient implements ApplicationDriverServi
     @Cacheable(value = "driverProfiles", key = "#driverId", unless = "#result == null")
     public SharedDriverProfileDTO validateDriver(String driverId) {
         log.debug("Validating driver with ID: {}", driverId);
-        
-        return circuitBreaker.executeSupplier(() -> {
-            try {
-                String url = driverServiceUrl + "/drivers/" + driverId;
-                SharedDriverProfileDTO response = restTemplate.getForObject(url, SharedDriverProfileDTO.class);
-                
-                if (response == null) {
-                    log.warn("Driver service returned null for driver ID: {}", driverId);
-                    throw new InfrastructureServiceUnavailableException("Driver Service", HttpStatus.NO_CONTENT.value());
+
+        try {
+            return circuitBreaker.executeSupplier(() -> {
+                try {
+                    String url = driverServiceUrl + "/drivers/" + driverId;
+                    SharedDriverProfileDTO response = restTemplate.getForObject(url, SharedDriverProfileDTO.class);
+
+                    if (response == null) {
+                        log.warn("Driver service returned null for driver ID: {}", driverId);
+                        throw new InfrastructureServiceUnavailableException("Driver Service", HttpStatus.NO_CONTENT.value());
+                    }
+
+                    log.debug("Driver validation successful for ID: {}", driverId);
+                    return response;
+                } catch (HttpStatusCodeException e) {
+                    log.error("HTTP error validating driver {}: {} {}", driverId, e.getStatusCode(), e.getResponseBodyAsString());
+                    if (e.getStatusCode().value() == 404) {
+                        return createOfflineDriverResponse(driverId, "DRIVER_NOT_FOUND");
+                    }
+                    throw new InfrastructureServiceUnavailableException("Driver Service", e.getStatusCode().value());
+                } catch (Exception e) {
+                    log.error("Error validating driver {}: {}", driverId, e.getMessage(), e);
+                    throw new InfrastructureServiceUnavailableException("Driver Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
                 }
-                
-                log.debug("Driver validation successful for ID: {}", driverId);
-                return response;
-            } catch (HttpStatusCodeException e) {
-                log.error("HTTP error validating driver {}: {} {}", driverId, e.getStatusCode(), e.getResponseBodyAsString());
-                
-                if (e.getStatusCode().value() == 404) {
-                    // Return an offline driver for not found
-                    return createOfflineDriverResponse(driverId, "DRIVER_NOT_FOUND");
-                }
-                
-                throw new InfrastructureServiceUnavailableException("Driver Service", e.getStatusCode().value());
-            } catch (Exception e) {
-                log.error("Error validating driver {}: {}", driverId, e.getMessage(), e);
-                throw new InfrastructureServiceUnavailableException("Driver Service", HttpStatus.INTERNAL_SERVER_ERROR.value());
-            }
-        }, throwable -> handleFallback(driverId, throwable));
+            });
+        } catch (Exception ex) {
+            return handleFallback(driverId, ex);
+        }
     }
 
     private SharedDriverProfileDTO handleFallback(String driverId, Throwable ex) {
         log.warn("Circuit breaker fallback triggered for driver {}: {}", driverId, ex.getMessage());
-        
-        // Return a default offline driver profile to prevent matching
         return createOfflineDriverResponse(driverId, "SERVICE_UNAVAILABLE");
     }
 

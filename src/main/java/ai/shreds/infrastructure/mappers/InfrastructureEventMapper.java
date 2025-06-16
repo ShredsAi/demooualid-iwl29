@@ -2,6 +2,7 @@ package ai.shreds.infrastructure.mappers;
 
 import ai.shreds.domain.entities.DomainOutboxEventJpaEntity;
 import ai.shreds.domain.events.*;
+import ai.shreds.domain.enums.DomainCancellationReasonEnum;
 import ai.shreds.shared.dtos.SharedTripEventDTO;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -29,7 +30,6 @@ public class InfrastructureEventMapper {
         if (domainEvent == null) {
             return null;
         }
-
         try {
             SharedTripEventDTO kafkaEvent = new SharedTripEventDTO();
             kafkaEvent.setEventType(domainEvent.getEventType());
@@ -37,9 +37,7 @@ public class InfrastructureEventMapper {
             kafkaEvent.setTimestamp(domainEvent.getOccurredAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             kafkaEvent.setPayload(convertPayloadToMap(domainEvent.getPayload()));
             kafkaEvent.setSource("trip-request-matching-shred");
-
             return kafkaEvent;
-
         } catch (Exception e) {
             log.error("Error mapping domain event to Kafka event: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to map domain event to Kafka event", e);
@@ -50,7 +48,6 @@ public class InfrastructureEventMapper {
         if (domainEvent == null) {
             return null;
         }
-
         try {
             DomainOutboxEventJpaEntity outboxEntity = new DomainOutboxEventJpaEntity();
             outboxEntity.setAggregateType("Trip");
@@ -59,9 +56,7 @@ public class InfrastructureEventMapper {
             outboxEntity.setEventPayload(serializePayload(domainEvent.getPayload()));
             outboxEntity.setPublished(false);
             outboxEntity.setCreatedAt(OffsetDateTime.of(domainEvent.getOccurredAt(), ZoneOffset.UTC));
-
             return outboxEntity;
-
         } catch (Exception e) {
             log.error("Error mapping domain event to outbox entity: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to map domain event to outbox entity", e);
@@ -72,14 +67,11 @@ public class InfrastructureEventMapper {
         if (outboxEntity == null) {
             return null;
         }
-
         try {
             String eventType = outboxEntity.getEventType();
             String aggregateId = outboxEntity.getAggregateId().toString();
             LocalDateTime occurredAt = outboxEntity.getCreatedAt().toLocalDateTime();
             Map<String, Object> payload = deserializePayload(outboxEntity.getEventPayload());
-
-            // Create specific domain event based on event type
             switch (eventType) {
                 case "TRIP_REQUESTED":
                     return createTripRequestedEvent(aggregateId, occurredAt, payload);
@@ -93,7 +85,6 @@ public class InfrastructureEventMapper {
                     log.warn("Unknown event type: {}, creating generic event", eventType);
                     return createGenericEvent(eventType, aggregateId, occurredAt, payload);
             }
-
         } catch (Exception e) {
             log.error("Error mapping outbox entity to domain event: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to map outbox entity to domain event", e);
@@ -101,10 +92,7 @@ public class InfrastructureEventMapper {
     }
 
     private DomainTripRequestedEvent createTripRequestedEvent(String aggregateId, LocalDateTime occurredAt, Map<String, Object> payload) {
-        // Extract specific fields from payload for TripRequestedEvent
         String riderId = (String) payload.get("riderId");
-        // Note: In a real implementation, you'd properly reconstruct the location values
-        // For now, we'll create a minimal event
         return new DomainTripRequestedEvent(aggregateId, riderId, null, null, occurredAt);
     }
 
@@ -119,27 +107,25 @@ public class InfrastructureEventMapper {
     }
 
     private DomainTripCancelledEvent createTripCancelledEvent(String aggregateId, LocalDateTime occurredAt, Map<String, Object> payload) {
-        return new DomainTripCancelledEvent(aggregateId, occurredAt);
+        String reasonStr = (String) payload.get("reason");
+        DomainCancellationReasonEnum reason = DomainCancellationReasonEnum.valueOf(reasonStr);
+        return new DomainTripCancelledEvent(aggregateId, reason, occurredAt);
     }
 
     private DomainDomainEvent createGenericEvent(String eventType, String aggregateId, LocalDateTime occurredAt, Map<String, Object> payload) {
-        // Generic event implementation for unknown types
         return new DomainDomainEvent() {
             @Override
             public String getAggregateId() {
                 return aggregateId;
             }
-
             @Override
             public String getEventType() {
                 return eventType;
             }
-
             @Override
             public LocalDateTime getOccurredAt() {
                 return occurredAt;
             }
-
             @Override
             public Map<String, Object> getPayload() {
                 return payload;
@@ -158,7 +144,6 @@ public class InfrastructureEventMapper {
         if (payload == null || payload.isEmpty()) {
             return "{}";
         }
-
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
@@ -171,7 +156,6 @@ public class InfrastructureEventMapper {
         if (json == null || json.trim().isEmpty()) {
             return new HashMap<>();
         }
-
         try {
             return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
         } catch (JsonProcessingException e) {

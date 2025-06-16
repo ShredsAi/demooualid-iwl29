@@ -1,6 +1,7 @@
 package ai.shreds.domain.value_objects;
 
 import ai.shreds.domain.exceptions.DomainBusinessRuleViolationException;
+import ai.shreds.shared.dtos.SharedMoneyDTO;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
@@ -93,5 +94,25 @@ public class DomainMoneyValue {
     @Override
     public String toString() {
         return amount + " " + currency;
+    }
+
+    /**
+     * Creates a DomainMoneyValue from a SharedMoneyDTO.
+     */
+    public static DomainMoneyValue fromSharedDTO(SharedMoneyDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        return new DomainMoneyValue(dto.getAmount(), dto.getCurrency());
+    }
+
+    /**
+     * Converts this DomainMoneyValue to a SharedMoneyDTO.
+     */
+    public SharedMoneyDTO toSharedDTO() {
+        SharedMoneyDTO dto = new SharedMoneyDTO();
+        dto.setAmount(this.amount);
+        dto.setCurrency(this.currency);
+        return dto;
     }
 }

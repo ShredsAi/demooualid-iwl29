@@ -29,10 +29,10 @@ public class SharedCancellationRequestDTO {
      * @return ApplicationCancelTripCommand for the application layer to process
      */
     public ApplicationCancelTripCommand toApplicationCommand(String tripId) {
-        return ApplicationCancelTripCommand.builder()
-                .tripId(tripId)
-                .reason(reason)
-                .cancellationNote(cancellationNote)
-                .build();
+        ApplicationCancelTripCommand cmd = new ApplicationCancelTripCommand();
+        cmd.setTripId(tripId);
+        cmd.setReason(reason);
+        cmd.setCancellationNote(cancellationNote);
+        return cmd;
     }
 }
